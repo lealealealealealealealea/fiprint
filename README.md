@@ -12,7 +12,7 @@ run.sh
 README.md
 ```
 
-Local files created at runtime:
+Local runtime files:
 
 ```text
 .env
@@ -22,7 +22,7 @@ uploads/
 
 Do not commit local runtime files.
 
-## Install system requirements
+## Install system requirements on the print-capable Linux server
 
 ```bash
 sudo apt install git screen python3 openssh-client cups-client
@@ -36,10 +36,10 @@ pip install qrcode
 
 If `qrcode` is not installed, the script prints the manual TOTP setup URL instead.
 
-## One-command start or update
+## Start or update on the print-capable Linux server
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lealealealealealealealea/fiprint/main/run.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lealealealealealealealea/fiprint/master/run.sh | bash
 ```
 
 This clones or updates the repo in:
@@ -62,16 +62,46 @@ Detach without stopping:
 Ctrl-a then d
 ```
 
-## Restart
+## Start or update through SSH from another machine
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lealealealealealealealea/fiprint/main/run.sh | bash -s -- restart
+ssh -t user@PRIVATE_PRINT_SERVER "curl -fsSL https://raw.githubusercontent.com/lealealealealealealealea/fiprint/master/run.sh | bash"
+```
+
+Replace:
+
+```text
+user@PRIVATE_PRINT_SERVER
+```
+
+with the SSH login for the print-capable Linux server.
+
+## Restart
+
+Directly on the Linux server:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lealealealealealealealea/fiprint/master/run.sh | bash -s -- restart
+```
+
+Through SSH:
+
+```bash
+ssh -t user@PRIVATE_PRINT_SERVER "curl -fsSL https://raw.githubusercontent.com/lealealealealealealealea/fiprint/master/run.sh | bash -s -- restart"
 ```
 
 ## Stop using run.sh
 
+Directly on the Linux server:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lealealealealealealealea/fiprint/main/run.sh | bash -s -- stop
+curl -fsSL https://raw.githubusercontent.com/lealealealealealealealea/fiprint/master/run.sh | bash -s -- stop
+```
+
+Through SSH:
+
+```bash
+ssh -t user@PRIVATE_PRINT_SERVER "curl -fsSL https://raw.githubusercontent.com/lealealealealealealealea/fiprint/master/run.sh | bash -s -- stop"
 ```
 
 ## Stop using HTTP request
@@ -123,7 +153,7 @@ TOTP_ISSUER=fiprint
 TOTP_ACCOUNT=local-printer
 ```
 
-`203.0.113.10` is only an example address. Put the real server IP in your local `.env`.
+`203.0.113.10` is only an example address. Put the real server address in local `.env`.
 
 ## First run
 
@@ -144,7 +174,7 @@ local URL
 public URL
 ```
 
-Scan the QR code or use the `otpauth://` URL in your authenticator app.
+Scan the QR code or use the `otpauth://` URL in an authenticator app.
 
 ## Health
 
