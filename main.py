@@ -2,20 +2,6 @@
 
 """
 Tiny authenticated print-upload server.
-
-Runtime behavior:
-- Starts a local HTTP server on 127.0.0.1 using a random free port.
-- Opens an SSH reverse tunnel to the public server.
-- Accepts authenticated POST requests using TOTP.
-- Provides:
-  - GET /health for basic public health check
-  - GET /status?token=123456 for authenticated status
-- Prints a terminal QR code for adding TOTP to your phone.
-- Saves uploaded files into ./uploads.
-- Can also print files that already exist in ./uploads.
-- Runs `lp` with a small structured set of print fields.
-- Allows flexible printer/option values using a conservative safe-character rule.
-- Keeps only the newest uploaded files.
 """
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -33,20 +19,11 @@ import shlex
 import shutil
 import struct
 import subprocess
+import threading
 import time
 
 
 def load_dotenv(path=".env"):
-    """
-    Minimal .env loader.
-
-    Supports:
-      KEY=value
-      KEY="value"
-      KEY='value'
-
-    Existing environment variables win over .env values.
-    """
     env_path = Path(path)
 
     if not env_path.exists():
@@ -65,11 +42,7 @@ def load_dotenv(path=".env"):
         if not key:
             continue
 
-        if (
-            len(value) >= 2
-            and value[0] == value[-1]
-            and value[0] in {"'", '"'}
-        ):
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
             value = value[1:-1]
 
         os.environ.setdefault(key, value)
@@ -382,6 +355,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write((body + "\n").encode())
 
+    def shutdown_after_response(self):
+        def stop():
+            time.sleep(0.2)
+            server.shutdown()
+
+        threading.Thread(target=stop, daemon=True).start()
+
     def do_GET(self):
         parsed = urlparse(self.path)
 
@@ -416,6 +396,7 @@ class Handler(BaseHTTPRequestHandler):
                 "max_saved_files": MAX_SAVED_FILES,
                 "supported_fields": [
                     "token",
+                    "action",
                     "file",
                     "existing_file",
                     "text",
@@ -429,6 +410,10 @@ class Handler(BaseHTTPRequestHandler):
                     "eco",
                     "gloss",
                     "overprint",
+                ],
+                "actions": [
+                    "print",
+                    "stop",
                 ],
                 "uploads": get_upload_stats(),
             })
@@ -456,6 +441,17 @@ class Handler(BaseHTTPRequestHandler):
         if not verify_totp(form.getfirst("token", "")):
             time.sleep(1)
             self.send_text(401, "unauthorized\n")
+            return
+
+        action = get_form_value(form, "action", "print")
+
+        if action == "stop":
+            self.send_text(200, "stopping\n")
+            self.shutdown_after_response()
+            return
+
+        if action != "print":
+            self.send_text(400, "bad action\n")
             return
 
         text = get_form_value(form, "text")
@@ -552,6 +548,8 @@ ssh = subprocess.Popen([
     "ssh",
     "-N",
     "-o", "ExitOnForwardFailure=yes",
+    "-o", "ServerAliveInterval=30",
+    "-o", "ServerAliveCountMax=2",
     "-R", f"{REMOTE_BIND}:{REMOTE_PORT}:127.0.0.1:{local_port}",
     SSH_HOST,
 ])
@@ -578,13 +576,8 @@ print()
 print("Status:")
 print(f"curl 'http://{PUBLIC_IP}:{REMOTE_PORT}/status?token=123456'")
 print()
-print("Upload and print:")
-print(f'curl -X POST http://{PUBLIC_IP}:{REMOTE_PORT} \\')
-print('  -F "token=123456" \\')
-print('  -F "printer=copy4c" \\')
-print('  -F "media=A4" \\')
-print('  -F "copies=1" \\')
-print('  -F "file=@document.pdf"')
+print("Stop:")
+print(f'curl -X POST http://{PUBLIC_IP}:{REMOTE_PORT} -F "token=123456" -F "action=stop"')
 print()
 print("Usage is documented in README.md")
 print()

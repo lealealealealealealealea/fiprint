@@ -1,9 +1,40 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git"
+REPO_URL="https://github.com/lealealealealealealealea/fiprint.git"
 APP_DIR="$HOME/.print-upload-server"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+SCREEN_NAME="${SCREEN_NAME:-print-upload-server}"
+
+cmd="${1:-start}"
+
+if ! command -v screen >/dev/null 2>&1; then
+  echo "screen is required. Install it first:"
+  echo "  sudo apt install screen"
+  exit 1
+fi
+
+if [ "$cmd" = "stop" ]; then
+  echo "Stopping screen session: $SCREEN_NAME"
+
+  if screen -list | grep -q "[.]${SCREEN_NAME}[[:space:]]"; then
+    screen -S "$SCREEN_NAME" -X quit
+    echo "Stopped."
+  else
+    echo "No running screen session named $SCREEN_NAME."
+  fi
+
+  exit 0
+fi
+
+if [ "$cmd" != "start" ] && [ "$cmd" != "restart" ]; then
+  echo "Usage:"
+  echo "  bash run.sh"
+  echo "  bash run.sh start"
+  echo "  bash run.sh restart"
+  echo "  bash run.sh stop"
+  exit 1
+fi
 
 echo "Installing/updating print-upload-server..."
 
@@ -34,9 +65,37 @@ if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   cp .env.example .env
 fi
 
-echo "Installing Python dependency: qrcode"
-"$PYTHON_BIN" -m pip install --user qrcode
+if screen -list | grep -q "[.]${SCREEN_NAME}[[:space:]]"; then
+  if [ "$cmd" = "restart" ]; then
+    echo "Stopping existing screen session: $SCREEN_NAME"
+    screen -S "$SCREEN_NAME" -X quit
+    sleep 1
+  else
+    echo "Already running in screen session: $SCREEN_NAME"
+    echo
+    echo "Attach:"
+    echo "  screen -r $SCREEN_NAME"
+    echo
+    echo "Stop:"
+    echo "  bash $APP_DIR/run.sh stop"
+    exit 0
+  fi
+fi
 
+echo "Starting server in background screen session: $SCREEN_NAME"
+
+screen -dmS "$SCREEN_NAME" bash -lc "
+  cd '$APP_DIR'
+  exec '$PYTHON_BIN' main.py
+"
+
+echo "Started."
 echo
-echo "Starting server..."
-exec "$PYTHON_BIN" main.py
+echo "Attach to logs / QR setup:"
+echo "  screen -r $SCREEN_NAME"
+echo
+echo "Detach from screen:"
+echo "  Ctrl-a then d"
+echo
+echo "Stop:"
+echo "  bash $APP_DIR/run.sh stop"
