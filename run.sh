@@ -8,6 +8,31 @@ SCREEN_NAME="${SCREEN_NAME:-print-upload-server}"
 
 cmd="${1:-start}"
 
+show_logs() {
+  sleep 2
+
+  local logfile
+  logfile="$(mktemp)"
+
+  if screen -S "$SCREEN_NAME" -X hardcopy "$logfile" 2>/dev/null; then
+    echo
+    echo "Latest server screen output:"
+    echo "----------------------------"
+    cat "$logfile"
+    rm -f "$logfile"
+  else
+    rm -f "$logfile"
+    echo "Could not read screen output."
+  fi
+
+  echo
+  echo "Attach later:"
+  echo "  ssh -t HOST 'screen -r $SCREEN_NAME'"
+  echo
+  echo "Detach from screen:"
+  echo "  Ctrl-a then d"
+}
+
 if ! command -v screen >/dev/null 2>&1; then
   echo "screen is required. Install it first:"
   echo "  sudo apt install screen"
@@ -27,18 +52,19 @@ if [ "$cmd" = "stop" ]; then
   exit 0
 fi
 
-if [ "$cmd" != "start" ] && [ "$cmd" != "restart" ] && [ "$cmd" != "attach" ]; then
+if [ "$cmd" = "logs" ]; then
+  show_logs
+  exit 0
+fi
+
+if [ "$cmd" != "start" ] && [ "$cmd" != "restart" ]; then
   echo "Usage:"
   echo "  bash run.sh"
   echo "  bash run.sh start"
   echo "  bash run.sh restart"
-  echo "  bash run.sh attach"
+  echo "  bash run.sh logs"
   echo "  bash run.sh stop"
   exit 1
-fi
-
-if [ "$cmd" = "attach" ]; then
-  exec screen -r "$SCREEN_NAME"
 fi
 
 echo "Installing/updating fiprint..."
@@ -77,23 +103,16 @@ if screen -list | grep -q "[.]${SCREEN_NAME}[[:space:]]"; then
     sleep 1
   else
     echo "Already running in screen session: $SCREEN_NAME"
-    echo "Attaching..."
-    exec screen -r "$SCREEN_NAME"
+    show_logs
+    exit 0
   fi
 fi
 
 echo "Starting server in screen session: $SCREEN_NAME"
-echo
 
 screen -dmS "$SCREEN_NAME" bash -lc "
   cd '$APP_DIR'
   exec '$PYTHON_BIN' main.py
 "
 
-sleep 1
-
-echo "Attached to logs."
-echo "Detach without stopping: Ctrl-a then d"
-echo
-
-exec screen -r "$SCREEN_NAME"
+show_logs
