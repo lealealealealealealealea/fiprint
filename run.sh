@@ -27,16 +27,21 @@ if [ "$cmd" = "stop" ]; then
   exit 0
 fi
 
-if [ "$cmd" != "start" ] && [ "$cmd" != "restart" ]; then
+if [ "$cmd" != "start" ] && [ "$cmd" != "restart" ] && [ "$cmd" != "attach" ]; then
   echo "Usage:"
   echo "  bash run.sh"
   echo "  bash run.sh start"
   echo "  bash run.sh restart"
+  echo "  bash run.sh attach"
   echo "  bash run.sh stop"
   exit 1
 fi
 
-echo "Installing/updating print-upload-server..."
+if [ "$cmd" = "attach" ]; then
+  exec screen -r "$SCREEN_NAME"
+fi
+
+echo "Installing/updating fiprint..."
 
 if ! command -v git >/dev/null 2>&1; then
   echo "git is required. Install it first:"
@@ -72,30 +77,23 @@ if screen -list | grep -q "[.]${SCREEN_NAME}[[:space:]]"; then
     sleep 1
   else
     echo "Already running in screen session: $SCREEN_NAME"
-    echo
-    echo "Attach:"
-    echo "  screen -r $SCREEN_NAME"
-    echo
-    echo "Stop:"
-    echo "  bash $APP_DIR/run.sh stop"
-    exit 0
+    echo "Attaching..."
+    exec screen -r "$SCREEN_NAME"
   fi
 fi
 
-echo "Starting server in background screen session: $SCREEN_NAME"
+echo "Starting server in screen session: $SCREEN_NAME"
+echo
 
 screen -dmS "$SCREEN_NAME" bash -lc "
   cd '$APP_DIR'
   exec '$PYTHON_BIN' main.py
 "
 
-echo "Started."
+sleep 1
+
+echo "Attached to logs."
+echo "Detach without stopping: Ctrl-a then d"
 echo
-echo "Attach to logs / QR setup:"
-echo "  screen -r $SCREEN_NAME"
-echo
-echo "Detach from screen:"
-echo "  Ctrl-a then d"
-echo
-echo "Stop:"
-echo "  bash $APP_DIR/run.sh stop"
+
+exec screen -r "$SCREEN_NAME"
