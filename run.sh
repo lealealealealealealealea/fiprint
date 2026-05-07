@@ -26,8 +26,8 @@ show_logs() {
   fi
 
   echo
-  echo "Attach later:"
-  echo "  ssh -t HOST 'screen -r $SCREEN_NAME'"
+  echo "Attach interactively later:"
+  echo "  ssh -t xkral4@aisa.fi.muni.cz 'screen -r $SCREEN_NAME'"
   echo
   echo "Detach from screen:"
   echo "  Ctrl-a then d"
